@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./web-app/backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000" # Expose backend port 5000 to host port 5000
+    volumes:
+      # Mount the SQLite database file to persist data outside the container
+      - ./web-app/backend/database.db:/app/database.db
+    environment:
+      # Ensure Flask runs in development mode inside the container if needed
+      # For production, use a proper WSGI server and set FLASK_ENV=production
+      - FLASK_ENV=development 
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./web-app/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80" # Expose Nginx port 80 (inside container) to host port 8080
+    depends_on:
+      - backend # Optional: Ensures backend starts before frontend, though frontend should handle API unavailability
+    environment:
+      # Pass the backend API URL to the frontend container
+      # The frontend code (api.ts) should use this variable
+      # Note: This requires modifying api.ts to read this env var at runtime, 
+      # which is tricky with Vite builds. A better approach might be to use Nginx proxy
+      # or configure the base URL during the build stage.
+      # For now, we assume the frontend might need configuration or uses relative paths/proxy.
+      # Example if using Nginx proxy (needs nginx.conf update):
+      # VITE_API_BASE_URL=/api 
+      # Example if accessing backend directly by service name:
+      VITE_API_BASE_URL=http://backend:5000/api
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
